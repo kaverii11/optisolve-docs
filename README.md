@@ -7,6 +7,8 @@
 
 ---
 
+> **About this repo:** `optisolve-docs` is Kaveri's personal extension of the team's hackathon submission, [kaverii11/Optisolve](https://github.com/kaverii11/Optisolve), which stays unchanged. It starts from that repo's `fix-confidence-scoring` branch (the Groq-only build that runs today) with full history, and adds document parsing on top. GitHub doesn't allow forking a repo into the account that owns it, so this is a copy rather than a GitHub fork.
+
 Demo video: https://drive.google.com/file/d/1ODCI-j1nPftBB69aMu3-EYH3kEsY4aDW/view?usp=sharing
 
 ## The Problem
