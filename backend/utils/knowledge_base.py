@@ -1,5 +1,6 @@
 import logging
 import os
+from hashlib import sha256
 
 import chromadb
 from chromadb.utils import embedding_functions
@@ -7,7 +8,10 @@ from chromadb.utils import embedding_functions
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-client = chromadb.PersistentClient(path=os.path.join(BASE_DIR, "chroma_db"))
+# CHROMA_DB_PATH lets tests use a throwaway store instead of the demo's chroma_db
+client = chromadb.PersistentClient(
+    path=os.getenv("CHROMA_DB_PATH") or os.path.join(BASE_DIR, "chroma_db")
+)
 
 # Use a local embedding model (no API cost for embedding)
 embedding_model = embedding_functions.SentenceTransformerEmbeddingFunction(
@@ -54,6 +58,40 @@ def seed_knowledge_base():
         ids=[f"seed_{i}" for i in range(len(seeds))]
     )
     logger.info("Knowledge base seeded with %d entries", len(seeds))
+
+DOCUMENT_SOURCE = "document"
+
+
+def add_document_chunks(filename: str, chunks: list[str]) -> list[str]:
+    """
+    Embed and store parsed document chunks in the same collection as the seeds,
+    so analyze_ticket retrieves them with no changes. The chunk text is stored as
+    the embedded document and as "reply", because analyze_ticket only passes
+    metadata reply/resolution to the LLM as context.
+
+    Re-uploading a file with the same name replaces its previous chunks.
+    """
+    collection.delete(where={"$and": [{"source": DOCUMENT_SOURCE}, {"filename": filename}]})
+    if not chunks:
+        return []
+
+    file_key = sha256(filename.encode("utf-8")).hexdigest()[:12]
+    ids = [f"doc_{file_key}_{i}" for i in range(len(chunks))]
+    collection.add(
+        documents=chunks,
+        metadatas=[
+            {
+                "reply": chunk,
+                "source": DOCUMENT_SOURCE,
+                "filename": filename,
+                "chunk_index": i,
+            }
+            for i, chunk in enumerate(chunks)
+        ],
+        ids=ids,
+    )
+    logger.info("Added %d chunks from %s to the knowledge base", len(chunks), filename)
+    return ids
 
 def get_collection():
     return collection

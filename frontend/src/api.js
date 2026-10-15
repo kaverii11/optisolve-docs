@@ -57,4 +57,28 @@ export function getConversationMetrics() {
   return request("/conversation-metrics");
 }
 
+export async function uploadKnowledgeDocument(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  // No JSON Content-Type here: the browser sets the multipart boundary itself.
+  const response = await fetch(`${API_BASE_URL}/knowledge-base/upload`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    let detail = errorText;
+    try {
+      detail = JSON.parse(errorText).detail || errorText;
+    } catch {
+      // plain-text error body
+    }
+    throw new Error(detail || "Upload failed");
+  }
+
+  return response.json();
+}
+
 export { API_BASE_URL };

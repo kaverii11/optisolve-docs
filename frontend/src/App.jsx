@@ -8,6 +8,7 @@ import {
   postConversationMessage,
   resolveAgentConversation,
   startConversation,
+  uploadKnowledgeDocument,
 } from "./api";
 
 const emptyMetrics = {
@@ -610,6 +611,8 @@ function AgentPortal({ username, onLogout }) {
             selectedConversationId={selectedConversationId}
             onSelect={selectConversation}
           />
+          <h3>Knowledge Base</h3>
+          <KnowledgeBaseUpload />
         </aside>
 
         <section className="card chat-panel">
@@ -708,6 +711,49 @@ function ConversationSection({ conversations, selectedConversationId, onSelect }
         </button>
       ))}
     </div>
+  );
+}
+
+/* ── KNOWLEDGE BASE UPLOAD ───────────────────────────────────── */
+function KnowledgeBaseUpload() {
+  const [file, setFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [result, setResult] = useState("");
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef(null);
+
+  async function handleUpload(event) {
+    event.preventDefault();
+    if (!file) return;
+    setUploading(true);
+    setResult("");
+    setUploadError("");
+    try {
+      const data = await uploadKnowledgeDocument(file);
+      setResult(`Added ${data.chunks_added} chunk${data.chunks_added === 1 ? "" : "s"} from ${data.filename}`);
+      setFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err) {
+      setUploadError(err.message);
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  return (
+    <form onSubmit={handleUpload} style={{ display: "grid", gap: "8px" }}>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".pdf,.docx,.txt"
+        onChange={(event) => setFile(event.target.files?.[0] || null)}
+      />
+      <button type="submit" disabled={!file || uploading}>
+        {uploading ? "Uploading…" : "Upload document"}
+      </button>
+      {result && <p className="muted small">{result}</p>}
+      {uploadError && <p className="error small">{uploadError}</p>}
+    </form>
   );
 }
 

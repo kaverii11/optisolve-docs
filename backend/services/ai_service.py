@@ -25,7 +25,8 @@ client = OpenAI(
 REPLY_MODEL = "openai/gpt-oss-120b"
 
 # 3. VECTOR STORE
-from backend.utils.knowledge_base import get_collection
+from backend.utils.knowledge_base import DOCUMENT_SOURCE, get_collection
+from backend.services.document_relevance import document_answer_score
 
 logger = logging.getLogger(__name__)
 collection = get_collection()
@@ -59,9 +60,21 @@ def analyze_ticket(text: str) -> Dict[str, Union[float, str]]:
     top_similarity = similarities[0]
     mean_similarity = np.mean(similarities)
     confidence = 0.75 * top_similarity + 0.25 * mean_similarity
-    confidence = round(float(np.clip(confidence, 0.0, 1.0)), 4)
 
     metadata_rows = results.get("metadatas", [[]])[0]
+
+    # Uploaded documents are passages, not questions, so similarity alone
+    # under-rates them. If a retrieved chunk clearly answers the ticket, let that
+    # judgement set confidence; it can only raise it, never lower it.
+    document_passages = [
+        document
+        for document, metadata in zip(results["documents"][0], metadata_rows)
+        if isinstance(metadata, dict) and metadata.get("source") == DOCUMENT_SOURCE
+    ]
+    if document_passages:
+        confidence = max(confidence, document_answer_score(text, document_passages))
+
+    confidence = round(float(np.clip(confidence, 0.0, 1.0)), 4)
     context_parts = []
     for metadata in metadata_rows:
         if not isinstance(metadata, dict):
